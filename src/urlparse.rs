@@ -1,4 +1,7 @@
-use pyo3::prelude::*;
+use num_bigint::BigInt;
+use pyo3::{prelude::*, types::PyString};
+
+use crate::err::InvalidUrl;
 
 #[pyfunction]
 pub fn normalize_path(path: &str) -> String {
@@ -24,8 +27,7 @@ pub fn normalize_path(path: &str) -> String {
     normalized_components.join("/")
 }
 
-const UNRESERVED_CHARS: &[u8] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+const UNRESERVED_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 
 pub fn percent_encoded(string: &str, safe: &str) -> String {
     let safe = safe.as_bytes();
@@ -53,7 +55,7 @@ pub fn quote(string: &str, safe: &str) -> String {
     let mut start = 0;
     let mut i = 0;
     while i < s.len() {
-        if i + 2 < s.len() && s[i] == b'%' && is_percent_encoded(&s[i..i + 3]) {
+        if s[i] == b'%' && i + 2 < s.len() && is_percent_encoded(&s[i..i + 3]) {
             if start < i {
                 result.push_str(&percent_encoded(&string[start..i], safe));
             }
@@ -70,4 +72,80 @@ pub fn quote(string: &str, safe: &str) -> String {
     }
 
     result
+}
+
+#[pyfunction]
+pub fn find_ascii_non_printable(s: &str) -> Option<usize> {
+    s.chars()
+        .position(|c| c.is_ascii() && !c.is_ascii_graphic() && c != ' ')
+}
+
+pub(crate) trait PercentEncoded {
+    fn percent_encoded(&self, safe: &str) -> String;
+}
+
+impl PercentEncoded for String {
+    fn percent_encoded(&self, safe: &str) -> String {
+        quote(self, safe)
+    }
+}
+
+impl PercentEncoded for &str {
+    fn percent_encoded(&self, safe: &str) -> String {
+        quote(self, safe)
+    }
+}
+
+#[pyfunction]
+pub fn validate_path(path: &str, has_scheme: bool, has_authority: bool) -> PyResult<()> {
+    if has_authority && !path.is_empty() && !path.starts_with('/') {
+        return Err(InvalidUrl::new("For absolute URLs, path must be empty or begin with '/'").into());
+    }
+
+    if !has_scheme && !has_authority {
+        if path.starts_with("//") {
+            return Err(InvalidUrl::new("Relative URLs cannot have a path starting with '//'").into());
+        }
+        if path.starts_with(':') {
+            return Err(InvalidUrl::new("Relative URLs cannot have a path starting with ':'").into());
+        }
+    }
+
+    Ok(())
+}
+
+#[pyfunction]
+pub fn normalize_port(port: &Bound<'_, PyAny>, scheme: &str) -> PyResult<Option<BigInt>> {
+    if port.is_none() {
+        return Ok(None);
+    }
+
+    let port = if port.is_instance_of::<PyString>() {
+        let port_str = port.extract::<String>()?;
+        if port_str.is_empty() {
+            return Ok(None);
+        }
+        match port_str.parse::<BigInt>() {
+            Ok(p) => p,
+            Err(_) => return Err(InvalidUrl::new(&format!("Invalid port: '{}'", port_str)).into()),
+        }
+    } else {
+        match port.extract::<BigInt>() {
+            Ok(p) => p,
+            Err(_) => return Err(InvalidUrl::new(&format!("Invalid port: {}", port.repr()?)).into()),
+        }
+    };
+
+    if let Some(default_port) = match scheme {
+        "https" | "wss" => Some(BigInt::from(443)),
+        "http" | "ws" => Some(BigInt::from(80)),
+        "ftp" => Some(BigInt::from(21)),
+        _ => None,
+    } {
+        if port == default_port {
+            return Ok(None);
+        }
+    }
+
+    Ok(Some(port))
 }
