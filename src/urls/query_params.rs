@@ -21,9 +21,7 @@ fn primitive_value_to_str(value: &Bound<'_, PyAny>) -> PyResult<String> {
 fn urlencode(s: &str) -> String {
     s.bytes()
         .map(|b| match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                (b as char).to_string()
-            }
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
             b' ' => "+".to_string(),
             _ => format!("%{:02X}", b),
         })
@@ -93,12 +91,7 @@ impl QueryParams {
     }
 
     #[pyo3(signature = (key, default=None))]
-    pub fn get(
-        &self,
-        py: Python<'_>,
-        key: String,
-        default: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<Option<Py<PyAny>>> {
+    pub fn get(&self, py: Python<'_>, key: String, default: Option<Bound<'_, PyAny>>) -> PyResult<Option<Py<PyAny>>> {
         match self.params.get(&key) {
             Some(values) => match values.first() {
                 Some(value) => {
@@ -182,9 +175,7 @@ impl QueryParams {
     }
 
     pub fn __iter__(&self) -> QueryParamsKeysIterator {
-        QueryParamsKeysIterator {
-            params: self.keys(),
-        }
+        QueryParamsKeysIterator { params: self.keys() }
     }
 
     pub fn __len__(&self) -> usize {
@@ -224,7 +215,9 @@ impl QueryParams {
     #[allow(unused_variables)]
     #[pyo3(signature = (params = None))]
     pub fn update(&self, params: Option<&Bound<'_, PyAny>>) -> PyResult<Self> {
-        Err(PyRuntimeError::new_err("QueryParams are immutable since 0.18.0.  Use `q = q.merge(...)` to create an updated copy."))
+        Err(PyRuntimeError::new_err(
+            "QueryParams are immutable since 0.18.0.  Use `q = q.merge(...)` to create an updated copy.",
+        ))
     }
 
     #[allow(unused_variables)]
@@ -271,21 +264,25 @@ impl QueryParams {
     }
 
     fn from_pydict(dict: &Bound<'_, PyDict>) -> PyResult<Self> {
-        let mut params: IndexMap<String, Vec<String>> = IndexMap::new();
+        let mut params: IndexMap<String, Vec<String>> = IndexMap::with_capacity(dict.len());
         for (key, value) in dict.iter() {
-            let key_str = key.extract::<String>()?;
+            let value = if let Ok(value) = value.downcast::<PyList>() {
+                let mut values = Vec::with_capacity(value.len());
+                for item in value {
+                    values.push(primitive_value_to_str(&item)?);
+                }
+                values
+            } else if let Ok(value) = value.downcast::<PyTuple>() {
+                let mut values = Vec::with_capacity(value.len());
+                for item in value {
+                    values.push(primitive_value_to_str(&item)?);
+                }
+                values
+            } else {
+                vec![primitive_value_to_str(&value)?]
+            };
 
-            if value.is_instance_of::<PyList>() || value.is_instance_of::<PyTuple>() {
-                let list: Vec<String> = value
-                    .extract::<Vec<Bound<'_, PyAny>>>()?
-                    .into_iter()
-                    .map(|v| primitive_value_to_str(&v))
-                    .collect::<PyResult<Vec<String>>>()?;
-                params.insert(key_str, list);
-                continue;
-            }
-            let value_str = primitive_value_to_str(&value)?;
-            params.entry(key_str).or_default().push(value_str);
+            params.insert(key.extract::<String>()?, value);
         }
         Ok(QueryParams { params })
     }
@@ -304,18 +301,25 @@ impl QueryParams {
         } else if obj.is_instance_of::<PyBytes>() {
             let bytes = obj.extract::<&[u8]>()?;
             Ok(QueryParams::from_str(std::str::from_utf8(bytes)?))
-        } else if obj.is_instance_of::<PyList>() || obj.is_instance_of::<PyTuple>() {
-            let mut params: IndexMap<String, Vec<String>> = IndexMap::new();
-
-            for (key, value) in obj.extract::<Vec<(String, String)>>()? {
+        } else if let Ok(obj) = obj.downcast::<PyList>() {
+            let mut params: IndexMap<String, Vec<String>> = IndexMap::with_capacity(obj.len());
+            for item in obj.iter() {
+                let (key, value) = item.extract::<(String, String)>()?;
                 params.entry(key).or_default().push(value);
             }
-
+            Ok(QueryParams { params })
+        } else if let Ok(obj) = obj.downcast::<PyTuple>() {
+            let mut params: IndexMap<String, Vec<String>> = IndexMap::new();
+            for item in obj.iter() {
+                let (key, value) = item.extract::<(String, String)>()?;
+                params.entry(key).or_default().push(value);
+            }
             Ok(QueryParams { params })
         } else {
             QueryParams::from_pydict(obj.downcast::<PyDict>()?)
         }
     }
+
 }
 
 #[pyclass]
