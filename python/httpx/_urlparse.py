@@ -25,7 +25,13 @@ import typing
 import idna
 
 from ._exceptions import InvalidURL
-from ._httpx import normalize_path, quote
+from ._httpx import (
+    find_ascii_non_printable,
+    normalize_path,
+    normalize_port,
+    quote,
+    validate_path,
+)
 
 MAX_URL_LENGTH = 65536
 
@@ -221,13 +227,11 @@ def urlparse(url: str = "", **kwargs: str | None) -> ParseResult:
 
     # If a URL includes any ASCII control characters including \t, \r, \n,
     # then treat it as invalid.
-    if any(char.isascii() and not char.isprintable() for char in url):
-        char = next(char for char in url if char.isascii() and not char.isprintable())
-        idx = url.find(char)
-        error = (
-            f"Invalid non-printable ASCII character in URL, {char!r} at position {idx}."
+    if (idx := find_ascii_non_printable(url)) is not None:
+        raise InvalidURL(
+            f"Invalid non-printable ASCII character in URL, "
+            f"{url[idx]!r} at position {idx}."
         )
-        raise InvalidURL(error)
 
     # Some keyword arguments require special handling.
     # ------------------------------------------------
@@ -271,16 +275,13 @@ def urlparse(url: str = "", **kwargs: str | None) -> ParseResult:
 
             # If a component includes any ASCII control characters including \t, \r, \n,
             # then treat it as invalid.
-            if any(char.isascii() and not char.isprintable() for char in value):
-                char = next(
-                    char for char in value if char.isascii() and not char.isprintable()
+            if (idx := find_ascii_non_printable(value)) is not None:
+                raise InvalidURL(
+                    (
+                        f"Invalid non-printable ASCII character in URL {key} component,"
+                        f" {value[idx]!r} at position {idx}."
+                    )
                 )
-                idx = value.find(char)
-                error = (
-                    f"Invalid non-printable ASCII character in URL {key} component, "
-                    f"{char!r} at position {idx}."
-                )
-                raise InvalidURL(error)
 
             # Ensure that keyword arguments match as a valid regex.
             if not COMPONENT_REGEX[key].fullmatch(value):
@@ -391,55 +392,3 @@ def encode_host(host: str) -> str:
         return idna.encode(host.lower()).decode("ascii")
     except idna.IDNAError:
         raise InvalidURL(f"Invalid IDNA hostname: {host!r}")
-
-
-def normalize_port(port: str | int | None, scheme: str) -> int | None:
-    # From https://tools.ietf.org/html/rfc3986#section-3.2.3
-    #
-    # "A scheme may define a default port.  For example, the "http" scheme
-    # defines a default port of "80", corresponding to its reserved TCP
-    # port number.  The type of port designated by the port number (e.g.,
-    # TCP, UDP, SCTP) is defined by the URI scheme.  URI producers and
-    # normalizers should omit the port component and its ":" delimiter if
-    # port is empty or if its value would be the same as that of the
-    # scheme's default."
-    if port is None or port == "":
-        return None
-
-    try:
-        port_as_int = int(port)
-    except ValueError:
-        raise InvalidURL(f"Invalid port: {port!r}")
-
-    # See https://url.spec.whatwg.org/#url-miscellaneous
-    default_port = {"ftp": 21, "http": 80, "https": 443, "ws": 80, "wss": 443}.get(
-        scheme
-    )
-    if port_as_int == default_port:
-        return None
-    return port_as_int
-
-
-def validate_path(path: str, has_scheme: bool, has_authority: bool) -> None:
-    """
-    Path validation rules that depend on if the URL contains
-    a scheme or authority component.
-
-    See https://datatracker.ietf.org/doc/html/rfc3986.html#section-3.3
-    """
-    if has_authority:
-        # If a URI contains an authority component, then the path component
-        # must either be empty or begin with a slash ("/") character."
-        if path and not path.startswith("/"):
-            raise InvalidURL("For absolute URLs, path must be empty or begin with '/'")
-
-    if not has_scheme and not has_authority:
-        # If a URI does not contain an authority component, then the path cannot begin
-        # with two slash characters ("//").
-        if path.startswith("//"):
-            raise InvalidURL("Relative URLs cannot have a path starting with '//'")
-
-        # In addition, a URI reference (Section 4.1) may be a relative-path reference,
-        # in which case the first path segment cannot contain a colon (":") character.
-        if path.startswith(":"):
-            raise InvalidURL("Relative URLs cannot have a path starting with ':'")

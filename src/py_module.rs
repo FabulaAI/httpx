@@ -4,7 +4,9 @@ use pyo3::prelude::*;
 mod _httpx {
     #[pymodule_export]
     use crate::{
-        urlparse::{normalize_path, quote},
+        err::{CookieConflict, InvalidUrl},
+        models::utils::unquote,
+        urlparse::{find_ascii_non_printable, normalize_path, normalize_port, quote, validate_path},
         urls::QueryParams,
     };
 }
