@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use pyo3::{
     exceptions::{PyAssertionError, PyKeyError, PyRuntimeError},
     prelude::*,
-    types::{PyBool, PyBytes, PyDict, PyList, PyString, PyTuple},
+    types::{PyBool, PyDict, PyList, PyString, PyTuple},
 };
 
 fn primitive_value_to_str(value: &Bound<'_, PyAny>) -> PyResult<String> {
@@ -292,15 +292,14 @@ impl QueryParams {
             Ok(QueryParams {
                 params: IndexMap::new(),
             })
-        } else if obj.is_instance_of::<QueryParams>() {
+        } else if let Ok(obj) = obj.downcast::<QueryParams>() {
             Ok(QueryParams {
-                params: obj.extract::<QueryParams>()?.params.clone(),
+                params: obj.borrow().params.clone(),
             })
-        } else if obj.is_instance_of::<PyString>() {
-            Ok(QueryParams::from_str(&obj.extract::<String>()?))
-        } else if obj.is_instance_of::<PyBytes>() {
-            let bytes = obj.extract::<&[u8]>()?;
-            Ok(QueryParams::from_str(std::str::from_utf8(bytes)?))
+        } else if let Ok(obj) = obj.extract::<&str>() {
+            Ok(QueryParams::from_str(&obj))
+        } else if let Ok(obj) = obj.extract::<&[u8]>() {
+            Ok(QueryParams::from_str(std::str::from_utf8(obj)?))
         } else if let Ok(obj) = obj.downcast::<PyList>() {
             let mut params: IndexMap<String, Vec<String>> = IndexMap::with_capacity(obj.len());
             for item in obj.iter() {
@@ -309,7 +308,7 @@ impl QueryParams {
             }
             Ok(QueryParams { params })
         } else if let Ok(obj) = obj.downcast::<PyTuple>() {
-            let mut params: IndexMap<String, Vec<String>> = IndexMap::new();
+            let mut params: IndexMap<String, Vec<String>> = IndexMap::with_capacity(obj.len());
             for item in obj.iter() {
                 let (key, value) = item.extract::<(String, String)>()?;
                 params.entry(key).or_default().push(value);
@@ -319,7 +318,6 @@ impl QueryParams {
             QueryParams::from_pydict(obj.downcast::<PyDict>()?)
         }
     }
-
 }
 
 #[pyclass]
