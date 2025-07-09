@@ -292,9 +292,9 @@ impl QueryParams {
             Ok(QueryParams {
                 params: IndexMap::new(),
             })
-        } else if let Ok(obj) = obj.downcast::<QueryParams>() {
+        } else if let Ok(obj) = obj.extract::<QueryParams>() {
             Ok(QueryParams {
-                params: obj.borrow().params.clone(),
+                params: obj.params.clone(),
             })
         } else if let Ok(obj) = obj.extract::<&str>() {
             Ok(QueryParams::from_str(&obj))
