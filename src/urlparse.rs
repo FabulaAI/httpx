@@ -121,7 +121,7 @@ pub fn normalize_port(port: &Bound<'_, PyAny>, scheme: &str) -> PyResult<Option<
     }
 
     let port = if port.is_instance_of::<PyString>() {
-        let port_str = port.extract::<String>()?;
+        let port_str = port.extract::<&str>()?;
         if port_str.is_empty() {
             return Ok(None);
         }
