@@ -8,7 +8,8 @@ use indexmap::IndexMap;
 use pyo3::{
     exceptions::{PyAssertionError, PyKeyError, PyRuntimeError},
     prelude::*,
-    types::{PyBool, PyDict, PyList, PyString, PyTuple},
+    types::{PyBool, PyDict, PyList, PyTuple},
+    IntoPyObjectExt,
 };
 
 fn primitive_value_to_str(value: &Bound<'_, PyAny>) -> PyResult<String> {
@@ -103,10 +104,7 @@ impl QueryParams {
     pub fn get(&self, py: Python<'_>, key: String, default: Option<Bound<'_, PyAny>>) -> PyResult<Option<Py<PyAny>>> {
         match self.params.get(&key) {
             Some(values) => match values.first() {
-                Some(value) => {
-                    let value = PyString::new(py, value);
-                    Ok(Some(value.into_any().unbind()))
-                }
+                Some(value) => Ok(Some(value.into_py_any(py)?)),
                 None => {
                     if let Some(default_value) = default {
                         Ok(Some(default_value.into_any().unbind()))
