@@ -189,8 +189,8 @@ impl QueryParams {
     pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
         match other.extract::<QueryParams>() {
             Ok(other) => {
-                let mut this = self.multi_items().clone();
-                let mut other = other.multi_items().clone();
+                let mut this = self.multi_items();
+                let mut other = other.multi_items();
                 this.sort();
                 other.sort();
                 this == other
