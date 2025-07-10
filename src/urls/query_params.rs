@@ -1,4 +1,7 @@
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{
+    fmt::Debug,
+    hash::{DefaultHasher, Hash, Hasher},
+};
 
 use indexmap::IndexMap;
 use pyo3::{
@@ -28,7 +31,7 @@ fn urlencode(s: &str) -> String {
         .collect()
 }
 
-#[pyclass(eq, frozen)]
+#[pyclass(eq, frozen, str)]
 #[derive(Debug, Clone)]
 pub struct QueryParams {
     params: IndexMap<String, Vec<String>>,
@@ -186,17 +189,8 @@ impl QueryParams {
         !self.params.is_empty()
     }
 
-    pub fn __str__(&self) -> String {
-        let multi_items = self.multi_items();
-        let mut result = Vec::with_capacity(multi_items.len());
-        for (key, value) in &self.multi_items() {
-            result.push(format!("{}={}", urlencode(key), urlencode(value)));
-        }
-        result.join("&")
-    }
-
     pub fn __repr__(&self) -> String {
-        format!("QueryParams('{}')", self.__str__())
+        format!("QueryParams('{}')", self)
     }
 
     #[allow(unused_variables)]
@@ -216,7 +210,7 @@ impl QueryParams {
 
     pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
-        self.__str__().hash(&mut hasher);
+        self.to_string().hash(&mut hasher);
         hasher.finish()
     }
 }
@@ -335,5 +329,17 @@ impl PartialEq for QueryParams {
         this.sort();
         other.sort();
         this == other
+    }
+}
+
+impl std::fmt::Display for QueryParams {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let multi_items = self.multi_items();
+        let mut result = Vec::with_capacity(multi_items.len());
+        for (key, value) in &self.multi_items() {
+            result.push(format!("{}={}", urlencode(key), urlencode(value)));
+        }
+        result.join("&");
+        write!(f, "{}", result.join("&"))
     }
 }
