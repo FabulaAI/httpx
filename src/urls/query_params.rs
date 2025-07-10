@@ -1,6 +1,7 @@
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},
+    vec::IntoIter,
 };
 
 use indexmap::IndexMap;
@@ -178,7 +179,9 @@ impl QueryParams {
     }
 
     pub fn __iter__(&self) -> QueryParamsKeysIterator {
-        QueryParamsKeysIterator { params: self.keys() }
+        QueryParamsKeysIterator {
+            params: self.keys().into_iter(),
+        }
     }
 
     pub fn __len__(&self) -> usize {
@@ -298,7 +301,7 @@ impl QueryParams {
 #[pyclass]
 #[derive(Debug, Clone)]
 pub struct QueryParamsKeysIterator {
-    params: Vec<String>,
+    params: IntoIter<String>,
 }
 
 #[pymethods]
@@ -308,11 +311,7 @@ impl QueryParamsKeysIterator {
     }
 
     pub fn __next__(&mut self) -> Option<String> {
-        if self.params.is_empty() {
-            None
-        } else {
-            Some(self.params.remove(0))
-        }
+        self.params.next()
     }
 }
 
