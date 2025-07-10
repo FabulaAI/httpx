@@ -328,6 +328,8 @@ impl PartialEq for QueryParams {
     }
 }
 
+impl Eq for QueryParams {}
+
 impl std::fmt::Display for QueryParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = Vec::with_capacity(self.params.len());
