@@ -328,10 +328,11 @@ impl PartialEq for QueryParams {
 
 impl std::fmt::Display for QueryParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let multi_items = self.multi_items();
-        let mut result = Vec::with_capacity(multi_items.len());
-        for (key, value) in &self.multi_items() {
-            result.push(format!("{}={}", urlencode(key), urlencode(value)));
+        let mut result = Vec::with_capacity(self.params.len());
+        for (key, value) in &self.params {
+            for value in value {
+                result.push(format!("{}={}", urlencode(key), urlencode(value)));
+            }
         }
         result.join("&");
         write!(f, "{}", result.join("&"))
