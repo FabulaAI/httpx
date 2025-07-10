@@ -28,7 +28,7 @@ fn urlencode(s: &str) -> String {
         .collect()
 }
 
-#[pyclass]
+#[pyclass(eq)]
 #[derive(Debug, Clone)]
 pub struct QueryParams {
     params: IndexMap<String, Vec<String>>,
@@ -186,19 +186,6 @@ impl QueryParams {
         !self.params.is_empty()
     }
 
-    pub fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
-        match other.extract::<QueryParams>() {
-            Ok(other) => {
-                let mut this = self.multi_items();
-                let mut other = other.multi_items();
-                this.sort();
-                other.sort();
-                this == other
-            }
-            Err(_) => false,
-        }
-    }
-
     pub fn __str__(&self) -> String {
         let multi_items = self.multi_items();
         let mut result = Vec::with_capacity(multi_items.len());
@@ -338,5 +325,15 @@ impl QueryParamsKeysIterator {
         } else {
             Some(self.params.remove(0))
         }
+    }
+}
+
+impl PartialEq for QueryParams {
+    fn eq(&self, other: &Self) -> bool {
+        let mut this = self.multi_items();
+        let mut other = other.multi_items();
+        this.sort();
+        other.sort();
+        this == other
     }
 }
