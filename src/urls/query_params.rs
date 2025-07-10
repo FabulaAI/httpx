@@ -1,6 +1,6 @@
 use std::{
     fmt::Debug,
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
 };
 
 use indexmap::IndexMap;
@@ -31,7 +31,7 @@ fn urlencode(s: &str) -> String {
         .collect()
 }
 
-#[pyclass(eq, frozen, str)]
+#[pyclass(eq, frozen, str, hash)]
 #[derive(Debug, Clone)]
 pub struct QueryParams {
     params: IndexMap<String, Vec<String>>,
@@ -207,12 +207,6 @@ impl QueryParams {
             "QueryParams are immutable since 0.18.0. Use `q = q.set(key, value)` to create an updated copy.",
         ))
     }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.to_string().hash(&mut hasher);
-        hasher.finish()
-    }
 }
 
 impl QueryParams {
@@ -341,5 +335,11 @@ impl std::fmt::Display for QueryParams {
         }
         result.join("&");
         write!(f, "{}", result.join("&"))
+    }
+}
+
+impl Hash for QueryParams {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state);
     }
 }
