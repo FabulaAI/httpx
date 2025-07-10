@@ -84,6 +84,11 @@ impl QueryParams {
         items
     }
 
+    /// # NOTE
+    /// Think about the performance of this method.
+    ///
+    /// Iterating over all items and creating clones of keys and values may be not efficent.
+    /// But if we return references like `Vec<(&String, &String)>` it can lead to lifetime issues.
     pub fn multi_items(&self) -> Vec<(String, String)> {
         let mut items = Vec::new();
         for (key, values) in &self.params {
