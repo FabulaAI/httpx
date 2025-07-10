@@ -28,7 +28,7 @@ fn urlencode(s: &str) -> String {
         .collect()
 }
 
-#[pyclass(eq)]
+#[pyclass(eq, frozen)]
 #[derive(Debug, Clone)]
 pub struct QueryParams {
     params: IndexMap<String, Vec<String>>,
