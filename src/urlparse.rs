@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 use num_bigint::BigInt;
 use pyo3::{prelude::*, types::PyString};
 
@@ -148,4 +150,55 @@ pub fn normalize_port(port: &Bound<'_, PyAny>, scheme: &str) -> PyResult<Option<
     }
 
     Ok(Some(port))
+}
+
+fn is_ip_v4_like(s: &str) -> bool {
+    regex::Regex::new(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$")
+        .unwrap()
+        .is_match(s)
+}
+
+fn is_ip_v6_like(s: &str) -> bool {
+    regex::Regex::new(r"^\[.*\]$").unwrap().is_match(s)
+}
+
+fn encode_idna(host: &str) -> PyResult<String> {
+    Python::with_gil(|py| {
+        let idna = PyModule::import(py, "idna")?;
+        let host_str = PyString::new(py, host);
+        String::from_utf8(
+            idna.call_method1("encode", (host_str,))
+                .map_err(|_| InvalidUrl::new(&format!("Invalid IDNA hostname: '{}'", host)))?
+                .extract::<Vec<u8>>()?,
+        )
+        .map_err(|e| e.into())
+    })
+}
+
+#[pyfunction]
+pub fn encode_host(host: &str) -> PyResult<String> {
+    if host.is_empty() {
+        return Ok(String::new());
+    }
+
+    if is_ip_v4_like(host) {
+        match host.parse::<Ipv4Addr>() {
+            Ok(ip) => return Ok(ip.to_string()),
+            Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv4 address: '{}'", host)).into()),
+        }
+    }
+
+    if is_ip_v6_like(host) {
+        let ip = host.trim_matches(|c| c == '[' || c == ']');
+        match ip.parse::<Ipv6Addr>() {
+            Ok(ip) => return Ok(ip.to_string()),
+            Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv6 address: '{}'", host)).into()),
+        }
+    }
+
+    if host.is_ascii() {
+        return Ok(host.to_ascii_lowercase().percent_encoded("!$&'()*+,;=\"`{}%|\\"));
+    }
+
+    encode_idna(&host.to_lowercase())
 }
