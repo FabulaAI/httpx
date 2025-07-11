@@ -8,6 +8,7 @@ name = "httpx"
 crate-type = ["cdylib"]
 
 [dependencies]
+idna = "1.0.3"
 indexmap = "2.9.0"
 num-bigint = "0.4.6"
 pyo3 = { version = "0.24.0", features = [
@@ -15,3 +16,4 @@ pyo3 = { version = "0.24.0", features = [
     "generate-import-lib",
     "num-bigint"
 ] }
+regex = "1.11.1"

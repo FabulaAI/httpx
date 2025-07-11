@@ -11,7 +11,7 @@ impl InvalidUrl {
     #[new]
     pub fn new(message: &str) -> Self {
         Self {
-            message: message.to_string(),
+            message: message.to_owned(),
         }
     }
 }
@@ -32,7 +32,7 @@ pub struct CookieConflict {
 impl CookieConflict {
     #[new]
     pub fn new(message: &str) -> Self {
-        Self { message: message.to_string() }
+        Self { message: message.to_owned() }
     }
 }
 
