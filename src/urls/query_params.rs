@@ -8,18 +8,23 @@ use indexmap::IndexMap;
 use pyo3::{
     exceptions::{PyAssertionError, PyKeyError, PyRuntimeError},
     prelude::*,
-    types::{PyBool, PyDict, PyList, PyTuple},
+    types::{PyDict, PyList, PyTuple},
     IntoPyObjectExt,
 };
 
-fn primitive_value_to_str(value: &Bound<'_, PyAny>) -> PyResult<String> {
-    if value.is_instance_of::<PyBool>() {
-        let bool_value = value.extract::<bool>()?;
-        Ok(bool_value.to_string())
-    } else if value.is_none() {
-        Ok("".to_string())
-    } else {
-        Ok(value.to_string())
+trait ToPrimitiveString: ToString {
+    fn to_primitve_string(&self) -> String;
+}
+
+impl ToPrimitiveString for Bound<'_, PyAny> {
+    fn to_primitve_string(&self) -> String {
+        if self.is_none() {
+            "".to_string()
+        } else if let Ok(value) = self.extract::<bool>() {
+            value.to_string()
+        } else {
+            self.to_string()
+        }
     }
 }
 
@@ -135,7 +140,7 @@ impl QueryParams {
             params: self.params.clone(),
         };
 
-        q.params.insert(key, vec![primitive_value_to_str(value)?]);
+        q.params.insert(key, vec![value.to_primitve_string()]);
         Ok(q)
     }
 
@@ -144,7 +149,7 @@ impl QueryParams {
             params: self.params.clone(),
         };
 
-        let value = primitive_value_to_str(value)?;
+        let value = value.to_primitve_string();
         q.params.entry(key.to_string()).or_default().push(value);
         Ok(q)
     }
@@ -250,17 +255,17 @@ impl QueryParams {
             let value = if let Ok(value) = value.downcast::<PyList>() {
                 let mut values = Vec::with_capacity(value.len());
                 for item in value {
-                    values.push(primitive_value_to_str(&item)?);
+                    values.push(item.to_primitve_string());
                 }
                 values
             } else if let Ok(value) = value.downcast::<PyTuple>() {
                 let mut values = Vec::with_capacity(value.len());
                 for item in value {
-                    values.push(primitive_value_to_str(&item)?);
+                    values.push(item.to_primitve_string());
                 }
                 values
             } else {
-                vec![primitive_value_to_str(&value)?]
+                vec![value.to_primitve_string()]
             };
 
             params.insert(key.extract::<String>()?, value);
