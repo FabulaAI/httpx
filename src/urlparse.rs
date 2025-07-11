@@ -183,7 +183,7 @@ pub fn encode_host(host: &str) -> PyResult<String> {
 
     if is_ip_v4_like(host) {
         match host.parse::<Ipv4Addr>() {
-            Ok(_) => return Ok(host.to_owned()),
+            Ok(ip) => return Ok(ip.to_string()),
             Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv4 address: '{}'", host)).into()),
         }
     }
@@ -191,7 +191,7 @@ pub fn encode_host(host: &str) -> PyResult<String> {
     if is_ip_v6_like(host) {
         let ip = host.trim_matches(|c| c == '[' || c == ']');
         match ip.parse::<Ipv6Addr>() {
-            Ok(_) => return Ok(host.to_owned()),
+            Ok(ip) => return Ok(ip.to_string()),
             Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv6 address: '{}'", host)).into()),
         }
     }
