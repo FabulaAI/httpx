@@ -12,7 +12,7 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-trait ToPrimitiveString: ToString {
+trait ToPrimitiveString {
     fn to_primitve_string(&self) -> String;
 }
 
