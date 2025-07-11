@@ -150,7 +150,7 @@ impl QueryParams {
         };
 
         let value = value.to_query_param_value()?;
-        q.params.entry(key.to_string()).or_default().push(value);
+        q.params.entry(key.to_owned()).or_default().push(value);
         Ok(q)
     }
 
@@ -233,15 +233,15 @@ impl QueryParams {
             match pair.len() {
                 2 => {
                     params
-                        .entry(pair[0].to_string())
+                        .entry(pair[0].to_owned())
                         .or_default()
-                        .push(pair[1].to_string());
+                        .push(pair[1].to_owned());
                 }
                 1 => {
                     params
-                        .entry(pair[0].to_string())
+                        .entry(pair[0].to_owned())
                         .or_default()
-                        .push("".to_string());
+                        .push("".to_owned());
                 }
                 _ => {}
             }
