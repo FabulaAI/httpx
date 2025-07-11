@@ -8,7 +8,7 @@ use crate::err::InvalidUrl;
 #[pyfunction]
 pub fn normalize_path(path: &str) -> String {
     if !path.contains(".") {
-        return path.to_string();
+        return path.to_owned();
     }
 
     let components = path.split('/').collect::<Vec<&str>>();
@@ -183,7 +183,7 @@ pub fn encode_host(host: &str) -> PyResult<String> {
 
     if is_ip_v4_like(host) {
         match host.parse::<Ipv4Addr>() {
-            Ok(ip) => return Ok(ip.to_string()),
+            Ok(_) => return Ok(host.to_owned()),
             Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv4 address: '{}'", host)).into()),
         }
     }
@@ -191,13 +191,15 @@ pub fn encode_host(host: &str) -> PyResult<String> {
     if is_ip_v6_like(host) {
         let ip = host.trim_matches(|c| c == '[' || c == ']');
         match ip.parse::<Ipv6Addr>() {
-            Ok(ip) => return Ok(ip.to_string()),
+            Ok(_) => return Ok(host.to_owned()),
             Err(_) => return Err(InvalidUrl::new(&format!("Invalid IPv6 address: '{}'", host)).into()),
         }
     }
 
     if host.is_ascii() {
-        return Ok(host.to_ascii_lowercase().percent_encoded("!$&'()*+,;=\"`{}%|\\"));
+        return Ok(host
+            .to_ascii_lowercase()
+            .percent_encoded("!$&'()*+,;=\"`{}%|\\"));
     }
 
     encode_idna(&host.to_lowercase())
