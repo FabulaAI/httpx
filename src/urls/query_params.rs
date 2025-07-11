@@ -19,7 +19,7 @@ trait ToQueryParamValue {
 impl ToQueryParamValue for Bound<'_, PyAny> {
     fn to_query_param_value(&self) -> PyResult<String> {
         if self.is_none() {
-            Ok("".to_string())
+            Ok("".to_owned())
         } else if let Ok(value) = self.extract::<bool>() {
             Ok(value.to_string())
         } else {
