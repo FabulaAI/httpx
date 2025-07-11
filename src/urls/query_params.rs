@@ -12,18 +12,18 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-trait ToPrimitiveString {
-    fn to_primitve_string(&self) -> String;
+trait ToQueryParamValue {
+    fn to_query_param_value(&self) -> PyResult<String>;
 }
 
-impl ToPrimitiveString for Bound<'_, PyAny> {
-    fn to_primitve_string(&self) -> String {
+impl ToQueryParamValue for Bound<'_, PyAny> {
+    fn to_query_param_value(&self) -> PyResult<String> {
         if self.is_none() {
-            "".to_string()
+            Ok("".to_string())
         } else if let Ok(value) = self.extract::<bool>() {
-            value.to_string()
+            Ok(value.to_string())
         } else {
-            self.to_string()
+            self.str().and_then(|s| s.extract())
         }
     }
 }
@@ -140,7 +140,7 @@ impl QueryParams {
             params: self.params.clone(),
         };
 
-        q.params.insert(key, vec![value.to_primitve_string()]);
+        q.params.insert(key, vec![value.to_query_param_value()?]);
         Ok(q)
     }
 
@@ -149,7 +149,7 @@ impl QueryParams {
             params: self.params.clone(),
         };
 
-        let value = value.to_primitve_string();
+        let value = value.to_query_param_value()?;
         q.params.entry(key.to_string()).or_default().push(value);
         Ok(q)
     }
@@ -255,17 +255,17 @@ impl QueryParams {
             let value = if let Ok(value) = value.downcast::<PyList>() {
                 let mut values = Vec::with_capacity(value.len());
                 for item in value {
-                    values.push(item.to_primitve_string());
+                    values.push(item.to_query_param_value()?);
                 }
                 values
             } else if let Ok(value) = value.downcast::<PyTuple>() {
                 let mut values = Vec::with_capacity(value.len());
                 for item in value {
-                    values.push(item.to_primitve_string());
+                    values.push(item.to_query_param_value()?);
                 }
                 values
             } else {
-                vec![value.to_primitve_string()]
+                vec![value.to_query_param_value()?]
             };
 
             params.insert(key.extract::<String>()?, value);
